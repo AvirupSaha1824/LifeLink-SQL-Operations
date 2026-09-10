@@ -1,0 +1,505 @@
+import {
+  boolean,
+  double,
+  index,
+  int,
+  mysqlEnum,
+  mysqlTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  varchar,
+} from "drizzle-orm/mysql-core";
+
+/**
+ * Core user table backing the Manus OAuth flow.
+ */
+export const users = mysqlTable("users", {
+  id: int("id").autoincrement().primaryKey(),
+  openId: varchar("openId", { length: 64 }).notNull().unique(),
+  name: text("name"),
+  email: varchar("email", { length: 320 }),
+  loginMethod: varchar("loginMethod", { length: 64 }),
+  role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
+});
+
+/**
+ * Reusable geographic address and coordinate records for blood banks and medicine sources.
+ */
+export const locations = mysqlTable(
+  "locations",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    label: varchar("label", { length: 160 }).notNull(),
+    addressLine1: varchar("addressLine1", { length: 255 }).notNull(),
+    addressLine2: varchar("addressLine2", { length: 255 }),
+    city: varchar("city", { length: 120 }).notNull(),
+    district: varchar("district", { length: 120 }),
+    state: varchar("state", { length: 120 }).notNull(),
+    postalCode: varchar("postalCode", { length: 20 }),
+    country: varchar("country", { length: 64 }).default("India").notNull(),
+    latitude: double("latitude").notNull(),
+    longitude: double("longitude").notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    index("locations_city_idx").on(table.city),
+    index("locations_state_idx").on(table.state),
+  ],
+);
+
+/**
+ * Hospitals and pharmacies that can publish medicine availability.
+ */
+export const medicineSources = mysqlTable(
+  "medicineSources",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    name: varchar("name", { length: 180 }).notNull(),
+    sourceType: mysqlEnum("sourceType", [
+      "retail_pharmacy",
+      "hospital_pharmacy",
+      "specialty_pharmacy",
+    ]).notNull(),
+    locationId: int("locationId")
+      .references(() => locations.id, { onDelete: "restrict" })
+      .notNull(),
+    isVerified: boolean("isVerified").default(false).notNull(),
+    operationalStatus: mysqlEnum("operationalStatus", ["open", "limited", "closed"])
+      .default("open")
+      .notNull(),
+    lastVerifiedAt: timestamp("lastVerifiedAt").defaultNow().notNull(),
+    statusUpdatedAt: timestamp("statusUpdatedAt").defaultNow().notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    index("medicine_sources_location_idx").on(table.locationId),
+    index("medicine_sources_status_idx").on(table.operationalStatus),
+  ],
+);
+
+/**
+ * Canonical catalog of care medicines and critical infusions.
+ */
+export const medicines = mysqlTable(
+  "medicines",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    name: varchar("name", { length: 180 }).notNull(),
+    genericName: varchar("genericName", { length: 180 }),
+    category: varchar("category", { length: 100 }).notNull(),
+    dosageForm: varchar("dosageForm", { length: 100 }).notNull(),
+    strength: varchar("strength", { length: 100 }).notNull(),
+    description: text("description"),
+    isCritical: boolean("isCritical").default(false).notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    uniqueIndex("medicines_identity_unique").on(table.name, table.dosageForm, table.strength),
+    index("medicines_category_idx").on(table.category),
+    index("medicines_critical_idx").on(table.isCritical),
+  ],
+);
+
+/**
+ * Source-specific medicine stock records, including operational availability and verification times.
+ */
+export const medicineAvailability = mysqlTable(
+  "medicineAvailability",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    medicineId: int("medicineId")
+      .references(() => medicines.id, { onDelete: "cascade" })
+      .notNull(),
+    sourceId: int("sourceId")
+      .references(() => medicineSources.id, { onDelete: "cascade" })
+      .notNull(),
+    quantity: int("quantity").notNull(),
+    unit: varchar("unit", { length: 48 }).default("units").notNull(),
+    availabilityStatus: mysqlEnum("availabilityStatus", [
+      "in_stock",
+      "low_stock",
+      "out_of_stock",
+      "on_request",
+    ]).notNull(),
+    nextRestockAt: timestamp("nextRestockAt"),
+    lastVerifiedAt: timestamp("lastVerifiedAt").defaultNow().notNull(),
+    statusUpdatedAt: timestamp("statusUpdatedAt").defaultNow().notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    uniqueIndex("medicine_availability_unique").on(table.medicineId, table.sourceId),
+    index("medicine_availability_medicine_idx").on(table.medicineId),
+    index("medicine_availability_source_idx").on(table.sourceId),
+    index("medicine_availability_status_idx").on(table.availabilityStatus),
+  ],
+);
+
+/**
+ * Licensed blood-bank records that publish availability by blood group and component.
+ */
+export const bloodBanks = mysqlTable(
+  "bloodBanks",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    name: varchar("name", { length: 180 }).notNull(),
+    licenseNumber: varchar("licenseNumber", { length: 100 }),
+    locationId: int("locationId")
+      .references(() => locations.id, { onDelete: "restrict" })
+      .notNull(),
+    isVerified: boolean("isVerified").default(false).notNull(),
+    operationalStatus: mysqlEnum("operationalStatus", ["open", "limited", "closed"])
+      .default("open")
+      .notNull(),
+    lastVerifiedAt: timestamp("lastVerifiedAt").defaultNow().notNull(),
+    statusUpdatedAt: timestamp("statusUpdatedAt").defaultNow().notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    uniqueIndex("blood_banks_name_location_unique").on(table.name, table.locationId),
+    index("blood_banks_location_idx").on(table.locationId),
+    index("blood_banks_status_idx").on(table.operationalStatus),
+  ],
+);
+
+/**
+ * Hospitals that publish verified transfusion and chemotherapy care updates.
+ */
+export const hospitals = mysqlTable(
+  "hospitals",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    name: varchar("name", { length: 180 }).notNull(),
+    department: varchar("department", { length: 140 }).notNull(),
+    locationId: int("locationId")
+      .references(() => locations.id, { onDelete: "restrict" })
+      .notNull(),
+    contactPhone: varchar("contactPhone", { length: 48 }).notNull(),
+    isVerified: boolean("isVerified").default(false).notNull(),
+    operationalStatus: mysqlEnum("operationalStatus", ["open", "limited", "closed"]).default("open").notNull(),
+    lastVerifiedAt: timestamp("lastVerifiedAt").defaultNow().notNull(),
+    statusUpdatedAt: timestamp("statusUpdatedAt").defaultNow().notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    uniqueIndex("hospitals_name_location_unique").on(table.name, table.locationId),
+    index("hospitals_location_idx").on(table.locationId),
+    index("hospitals_status_idx").on(table.operationalStatus),
+  ],
+);
+
+/**
+ * Patient care profiles provide the relational anchor for reservations,
+ * hospital treatment updates, and caregiver sharing permissions.
+ */
+export const patientProfiles = mysqlTable(
+  "patientProfiles",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    primaryHospitalId: int("primaryHospitalId").references(() => hospitals.id, { onDelete: "set null" }),
+    medicalRecordNumber: varchar("medicalRecordNumber", { length: 64 }).notNull(),
+    displayName: varchar("displayName", { length: 160 }).notNull(),
+    bloodGroup: mysqlEnum("bloodGroup", ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"]).notNull(),
+    careStatus: mysqlEnum("careStatus", ["active", "paused", "archived"]).default("active").notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    uniqueIndex("patient_profiles_user_unique").on(table.userId),
+    uniqueIndex("patient_profiles_record_unique").on(table.medicalRecordNumber),
+    index("patient_profiles_hospital_idx").on(table.primaryHospitalId),
+  ],
+);
+
+/**
+ * Current transfusion and chemotherapy milestones published by the care venue.
+ * A row represents the latest status for one hospital treatment appointment.
+ */
+export const hospitalTreatmentStatuses = mysqlTable(
+  "hospitalTreatmentStatuses",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    referenceCode: varchar("referenceCode", { length: 40 }).notNull(),
+    patientId: int("patientId")
+      .references(() => patientProfiles.id, { onDelete: "restrict" })
+      .notNull(),
+    patientName: varchar("patientName", { length: 160 }).notNull(),
+    treatmentType: mysqlEnum("treatmentType", ["transfusion", "chemotherapy"]).notNull(),
+    hospitalId: int("hospitalId")
+      .references(() => hospitals.id, { onDelete: "restrict" })
+      .notNull(),
+    reservationId: int("reservationId").references(() => bloodReservations.id, { onDelete: "set null" }),
+    treatmentDetail: varchar("treatmentDetail", { length: 255 }).notNull(),
+    bloodGroup: varchar("bloodGroup", { length: 8 }),
+    plannedUnits: int("plannedUnits"),
+    careCycle: varchar("careCycle", { length: 100 }),
+    status: mysqlEnum("status", ["scheduled", "confirmed", "in_progress", "completed", "delayed", "cancelled"])
+      .default("scheduled")
+      .notNull(),
+    scheduledForAt: timestamp("scheduledForAt").notNull(),
+    statusUpdatedAt: timestamp("statusUpdatedAt").defaultNow().notNull(),
+    completedAt: timestamp("completedAt"),
+    careNotes: text("careNotes"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    uniqueIndex("hospital_treatment_reference_unique").on(table.referenceCode),
+    index("hospital_treatment_status_idx").on(table.status),
+    index("hospital_treatment_type_idx").on(table.treatmentType),
+    index("hospital_treatment_hospital_idx").on(table.hospitalId),
+    index("hospital_treatment_patient_idx").on(table.patientId),
+    index("hospital_treatment_reservation_idx").on(table.reservationId),
+    index("hospital_treatment_scheduled_idx").on(table.scheduledForAt),
+  ],
+);
+
+/**
+ * Trusted care contacts who can receive shared updates and coordinate support
+ * with the patient. Medical diagnoses and prescriptions are intentionally out
+ * of scope for these profiles.
+ */
+export const caregiverProfiles = mysqlTable(
+  "caregiverProfiles",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").references(() => users.id, { onDelete: "set null" }),
+    fullName: varchar("fullName", { length: 160 }).notNull(),
+    relationship: varchar("relationship", { length: 100 }).notNull(),
+    phone: varchar("phone", { length: 48 }).notNull(),
+    email: varchar("email", { length: 320 }),
+    availability: mysqlEnum("availability", ["available", "busy", "offline"]).default("available").notNull(),
+    notificationPreference: mysqlEnum("notificationPreference", ["all_updates", "critical_only", "daily_summary"])
+      .default("all_updates")
+      .notNull(),
+    isVerified: boolean("isVerified").default(false).notNull(),
+    lastActiveAt: timestamp("lastActiveAt").defaultNow().notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    uniqueIndex("caregiver_profiles_phone_unique").on(table.phone),
+    uniqueIndex("caregiver_profiles_user_unique").on(table.userId),
+    index("caregiver_profiles_availability_idx").on(table.availability),
+  ],
+);
+
+/**
+ * Explicit patient-to-caregiver consent links and the sharing state for each
+ * caregiver relationship.
+ */
+export const patientCaregiverLinks = mysqlTable(
+  "patientCaregiverLinks",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    patientId: int("patientId")
+      .references(() => patientProfiles.id, { onDelete: "cascade" })
+      .notNull(),
+    patientName: varchar("patientName", { length: 160 }).notNull(),
+    caregiverId: int("caregiverId")
+      .references(() => caregiverProfiles.id, { onDelete: "cascade" })
+      .notNull(),
+    linkStatus: mysqlEnum("linkStatus", ["invited", "active", "paused", "revoked"]).default("invited").notNull(),
+    sharingLevel: mysqlEnum("sharingLevel", ["care_updates", "care_and_reservations", "full_coordination"])
+      .default("care_updates")
+      .notNull(),
+    invitedAt: timestamp("invitedAt").defaultNow().notNull(),
+    acceptedAt: timestamp("acceptedAt"),
+    lastSharedAt: timestamp("lastSharedAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    uniqueIndex("patient_caregiver_link_unique").on(table.patientName, table.caregiverId),
+    uniqueIndex("patient_caregiver_profile_unique").on(table.patientId, table.caregiverId),
+    index("patient_caregiver_patient_idx").on(table.patientId),
+    index("patient_caregiver_status_idx").on(table.linkStatus),
+  ],
+);
+
+/**
+ * Patient care activity that has been shared with a linked caregiver.
+ */
+export const caregiverSharedUpdates = mysqlTable(
+  "caregiverSharedUpdates",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    caregiverLinkId: int("caregiverLinkId")
+      .references(() => patientCaregiverLinks.id, { onDelete: "cascade" })
+      .notNull(),
+    reservationId: int("reservationId").references(() => bloodReservations.id, { onDelete: "set null" }),
+    treatmentStatusId: int("treatmentStatusId").references(() => hospitalTreatmentStatuses.id, { onDelete: "set null" }),
+    medicineAvailabilityId: int("medicineAvailabilityId").references(() => medicineAvailability.id, { onDelete: "set null" }),
+    updateType: mysqlEnum("updateType", ["reservation", "treatment", "medicine", "appointment", "general"])
+      .notNull(),
+    priority: mysqlEnum("priority", ["routine", "important", "urgent"]).default("routine").notNull(),
+    title: varchar("title", { length: 200 }).notNull(),
+    detail: text("detail").notNull(),
+    sharedAt: timestamp("sharedAt").defaultNow().notNull(),
+    readAt: timestamp("readAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    index("caregiver_updates_link_idx").on(table.caregiverLinkId),
+    index("caregiver_updates_reservation_idx").on(table.reservationId),
+    index("caregiver_updates_treatment_idx").on(table.treatmentStatusId),
+    index("caregiver_updates_medicine_idx").on(table.medicineAvailabilityId),
+    index("caregiver_updates_priority_idx").on(table.priority),
+    index("caregiver_updates_shared_at_idx").on(table.sharedAt),
+  ],
+);
+
+/**
+ * Practical care-coordination prompts created by a caregiver. They are not
+ * diagnoses or treatment recommendations and direct clinical decisions back
+ * to the treating team.
+ */
+export const caregiverSuggestions = mysqlTable(
+  "caregiverSuggestions",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    caregiverLinkId: int("caregiverLinkId")
+      .references(() => patientCaregiverLinks.id, { onDelete: "cascade" })
+      .notNull(),
+    reservationId: int("reservationId").references(() => bloodReservations.id, { onDelete: "set null" }),
+    treatmentStatusId: int("treatmentStatusId").references(() => hospitalTreatmentStatuses.id, { onDelete: "set null" }),
+    category: mysqlEnum("category", ["blood", "treatment", "medicine", "appointment", "wellbeing"])
+      .notNull(),
+    title: varchar("title", { length: 200 }).notNull(),
+    detail: text("detail").notNull(),
+    suggestionStatus: mysqlEnum("suggestionStatus", ["new", "acknowledged", "completed", "dismissed"])
+      .default("new")
+      .notNull(),
+    suggestedAt: timestamp("suggestedAt").defaultNow().notNull(),
+    statusUpdatedAt: timestamp("statusUpdatedAt").defaultNow().notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    index("caregiver_suggestions_link_idx").on(table.caregiverLinkId),
+    index("caregiver_suggestions_reservation_idx").on(table.reservationId),
+    index("caregiver_suggestions_treatment_idx").on(table.treatmentStatusId),
+    index("caregiver_suggestions_status_idx").on(table.suggestionStatus),
+    index("caregiver_suggestions_category_idx").on(table.category),
+  ],
+);
+
+/**
+ * Current blood-component stock for a particular blood bank and blood group.
+ */
+export const bloodGroupInventory = mysqlTable(
+  "bloodGroupInventory",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    bloodBankId: int("bloodBankId")
+      .references(() => bloodBanks.id, { onDelete: "cascade" })
+      .notNull(),
+    bloodGroup: mysqlEnum("bloodGroup", ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"]).notNull(),
+    component: varchar("component", { length: 120 }).notNull(),
+    availableUnits: int("availableUnits").notNull(),
+    reservedUnits: int("reservedUnits").default(0).notNull(),
+    availabilityStatus: mysqlEnum("availabilityStatus", ["available", "limited", "unavailable"])
+      .notNull(),
+    lastUpdatedAt: timestamp("lastUpdatedAt").defaultNow().notNull(),
+    statusUpdatedAt: timestamp("statusUpdatedAt").defaultNow().notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    uniqueIndex("blood_inventory_unique").on(table.bloodBankId, table.bloodGroup, table.component),
+    index("blood_inventory_group_component_idx").on(table.bloodGroup, table.component),
+    index("blood_inventory_status_idx").on(table.availabilityStatus),
+  ],
+);
+
+/**
+ * Patient blood-component reservations tracked from request through fulfilment.
+ * The dashboard is deliberately driven by these persisted status records rather
+ * than by the discovery inventory alone.
+ */
+export const bloodReservations = mysqlTable(
+  "bloodReservations",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    referenceCode: varchar("referenceCode", { length: 40 }).notNull(),
+    patientId: int("patientId")
+      .references(() => patientProfiles.id, { onDelete: "restrict" })
+      .notNull(),
+    patientName: varchar("patientName", { length: 160 }).notNull(),
+    patientBloodGroup: mysqlEnum("patientBloodGroup", ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"]).notNull(),
+    bloodBankId: int("bloodBankId")
+      .references(() => bloodBanks.id, { onDelete: "restrict" })
+      .notNull(),
+    inventoryId: int("inventoryId")
+      .references(() => bloodGroupInventory.id, { onDelete: "restrict" })
+      .notNull(),
+    requestedUnits: int("requestedUnits").notNull(),
+    status: mysqlEnum("status", ["pending", "accepted", "fulfilled", "cancelled"]).default("pending").notNull(),
+    requestedForAt: timestamp("requestedForAt").notNull(),
+    statusUpdatedAt: timestamp("statusUpdatedAt").defaultNow().notNull(),
+    acceptedAt: timestamp("acceptedAt"),
+    fulfilledAt: timestamp("fulfilledAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    uniqueIndex("blood_reservations_reference_unique").on(table.referenceCode),
+    index("blood_reservations_status_idx").on(table.status),
+    index("blood_reservations_patient_idx").on(table.patientId),
+    index("blood_reservations_blood_bank_idx").on(table.bloodBankId),
+    index("blood_reservations_requested_for_idx").on(table.requestedForAt),
+  ],
+);
+
+/**
+ * Contact channels for blood banks and medicine sources.
+ */
+export const contactDetails = mysqlTable(
+  "contactDetails",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    bloodBankId: int("bloodBankId").references(() => bloodBanks.id, { onDelete: "cascade" }),
+    medicineSourceId: int("medicineSourceId").references(() => medicineSources.id, { onDelete: "cascade" }),
+    contactType: mysqlEnum("contactType", ["phone", "email", "website", "emergency"]).notNull(),
+    label: varchar("label", { length: 100 }),
+    value: varchar("value", { length: 320 }).notNull(),
+    isPrimary: boolean("isPrimary").default(false).notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    index("contacts_blood_bank_idx").on(table.bloodBankId),
+    index("contacts_medicine_source_idx").on(table.medicineSourceId),
+  ],
+);
+
+export type User = typeof users.$inferSelect;
+export type InsertUser = typeof users.$inferInsert;
+export type Location = typeof locations.$inferSelect;
+export type Medicine = typeof medicines.$inferSelect;
+export type MedicineSource = typeof medicineSources.$inferSelect;
+export type MedicineAvailability = typeof medicineAvailability.$inferSelect;
+export type BloodBank = typeof bloodBanks.$inferSelect;
+export type Hospital = typeof hospitals.$inferSelect;
+export type PatientProfile = typeof patientProfiles.$inferSelect;
+export type HospitalTreatmentStatus = typeof hospitalTreatmentStatuses.$inferSelect;
+export type CaregiverProfile = typeof caregiverProfiles.$inferSelect;
+export type PatientCaregiverLink = typeof patientCaregiverLinks.$inferSelect;
+export type CaregiverSharedUpdate = typeof caregiverSharedUpdates.$inferSelect;
+export type CaregiverSuggestion = typeof caregiverSuggestions.$inferSelect;
+export type BloodGroupInventory = typeof bloodGroupInventory.$inferSelect;
+export type BloodReservation = typeof bloodReservations.$inferSelect;
+export type ContactDetail = typeof contactDetails.$inferSelect;

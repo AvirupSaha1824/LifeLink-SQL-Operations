@@ -1,0 +1,76 @@
+# Project TODO
+
+- [x] Inspect the existing LifeLink Blue interface and identify medicine, blood-bank, search, and location integration points.
+- [x] Define persistent Drizzle schema for locations, medicines, medicine availability, blood banks, blood-group inventory, contacts, and status timestamps.
+- [x] Create and apply database migration for LifeLink discovery data.
+- [x] Add representative, clearly labeled sample records for medicines, availability, blood banks, inventory, locations, and contact details.
+- [x] Implement typed public tRPC queries for medicine listing, search, category/location filtering, and availability retrieval.
+- [x] Implement typed public tRPC queries for blood-bank listing, search, blood-group/location filtering, and inventory retrieval.
+- [x] Connect the existing medicine interface to tRPC data with responsive loading, empty, and error states while preserving the current visual design.
+- [x] Connect the existing blood-bank interface to tRPC data with responsive loading, empty, and error states while preserving the current visual design.
+- [x] Add an interactive blood-bank map with location markers and directions interactions after core listings work.
+- [x] Write and run Vitest coverage for query helpers and public tRPC behavior.
+- [x] Verify the connected frontend flows in the browser and resolve outstanding bugs.
+- [x] Add direct Vitest coverage for database query helpers alongside public tRPC coverage.
+- [x] Correct negative blood-group labels in the blood search selector.
+- [x] Eliminate the Google Maps script-loading console warning and reverify the map.
+- [x] Fix the asynchronous Google Maps callback regression that left the map container blank.
+- [x] Reload the final blood-bank map and confirm no fresh Maps loader warning is emitted.
+- [x] Inspect the reference interactive-demo behavior and capture the sequence of visible states.
+- [x] Add a guided LifeLink demo mode that progresses through blood search, reservation, blood-bank acceptance, and patient alert states.
+- [x] Provide visible demo controls to start, progress, restart, and exit the sequence without changing the established UI design.
+- [x] Add automated coverage and browser verification for the interactive demo flow.
+- [x] Add a visible Restart demo control that resets the guided sequence to step 1.
+- [x] Verify the Restart demo and Close/Exit controls through automated coverage and the browser.
+- [x] Add automated controller-level coverage for the guided demo Restart and Close/Exit actions.
+- [x] Define persistent blood-reservation data with patient, blood-bank, blood component, unit, status, and status-timestamp fields.
+- [x] Create and apply the reservation schema migration and seed representative reservation records across pending, accepted, and fulfilled terminal statuses.
+- [x] Implement a typed public tRPC reservation-list query for the My Reservations dashboard view.
+- [x] Clarify and verify that fulfilled is the terminal completed reservation status shown in the LifeLink experience.
+- [x] Replace the My Reservations placeholder with a responsive reservation status dashboard that preserves the existing LifeLink design.
+- [x] Add automated and browser verification for reservation data, status labels, and empty/error states.
+- [x] Tailor the My Reservations empty-state copy to reservation-status filtering.
+- [x] Add automated coverage for the My Reservations loading/error state model and retry affordance.
+- [x] Verify the reservation-specific empty and error-state messaging in the browser.
+- [x] Add automated retry-controller coverage for recovery from a My Reservations query error.
+- [x] Define persistent hospital treatment-status data for transfusions and chemotherapy, including care venue, schedule, lifecycle status, and status timestamps.
+- [x] Create and apply the treatment-status schema migration and seed representative hospital treatment records.
+- [x] Implement typed public tRPC queries for transfusion and chemotherapy hospital-status records.
+- [x] Replace the Transfusion & Chemo placeholder with a responsive treatment-status dashboard that preserves the current LifeLink design.
+- [x] Add automated and browser verification for treatment data, status filters, and empty/error/retry states.
+- [x] Add automated API coverage for completed and delayed hospital treatment-status filters.
+- [x] Define persistent caregiver profiles, patient-caregiver links, shared care updates, and non-diagnostic care-coordination suggestions.
+- [x] Create and apply the caregiver-network schema migration and seed representative linked-caregiver records and shared updates.
+- [x] Implement typed public tRPC queries for caregiver profiles, shared care updates, and practical care-coordination suggestions.
+- [x] Replace the Caregiver Mode placeholder with a responsive caregiver network that includes invite/link actions and visible care suggestions while preserving the LifeLink design.
+- [x] Add automated and browser verification for caregiver connections, shared updates, suggestions, and empty/error/retry states.
+- [x] Add a persistent caregiver invitation action so patients can create and view new linked-caregiver invitations from Caregiver Mode.
+- [x] Make caregiver-network tests resilient to newly persisted caregiver invitations.
+- [x] Add a tailored Caregiver Mode loading, empty, error, and retry state model with automated coverage.
+- [x] Verify caregiver-network error recovery and caregiver-specific empty messaging in the browser.
+- [x] Force and verify the Caregiver Mode empty state and its tailored caregiver-specific message in the browser.
+- [x] Add a Caregiver Mode link-status filter with automated coverage for matching and empty results.
+- [x] Define a patient-centered relational model that connects authenticated users, patient profiles, blood reservations, hospital treatment statuses, caregiver links, shared updates, and caregiver suggestions.
+- [x] Add and apply an end-to-end schema migration with explicit foreign keys for patient records, reservation-linked treatment statuses, and reservation-linked caregiver updates and suggestions.
+- [x] Seed a complete representative workflow from an authenticated patient profile through blood reservation, hospital status, caregiver update, and caregiver suggestion.
+- [x] Add typed data access and public API coverage for the complete reservation-to-caregiver-suggestion workflow.
+- [x] Update the connected dashboard views to use the linked patient-centered data without redesigning the established LifeLink interface.
+- [x] Write and run automated tests for the full end-to-end relational workflow.
+- [x] Create a Mermaid ER diagram and technical explanation of all LifeLink table connections.
+- [x] Replace fixed home-dashboard date and time copy with a current local date-time display.
+- [x] Align representative reservation, transfusion/chemotherapy, and caregiver status records with the current timeline while retaining clear demo-data labeling.
+- [x] Add automated coverage for current date-time formatting and timeline-aligned status helpers.
+- [x] Verify the refreshed dashboard date, time, and status panels in the browser.
+- [x] Update the representative reservation, treatment, and caregiver database records so their statuses and timestamps match the current timeline, then verify the affected views.
+- [x] Add automated API assertions for the updated representative reservation, treatment, and caregiver statuses and timestamps.
+- [x] Diagnose the failed deployment and inspect LifeLink Blue's production build configuration and output.
+- [x] Correct any project-level deployment blocker found during build validation.
+- [x] Verify the production build and document whether the existing managed hosting capacity fits the current application workload.
+- [x] Diagnose why Vercel serves the backend bundle as page text instead of the LifeLink application.
+- [x] Add a Vercel-compatible build and route configuration for the LifeLink frontend and server endpoints.
+- [x] Document the required Vercel environment variables and redeployment steps for the full-stack application.
+- [x] Create a comprehensive README.md documenting LifeLink Blue's features, setup, architecture, data model, verification, and deployment options.
+- [x] Add production data-retention policies and patient-data privacy safeguards to README.md.
+- [x] Validate the completed README policy section and synchronize it to the connected GitHub repository.
+- [x] Verify the README privacy-policy update is present in the connected GitHub repository.
+- [x] Confirm whether any additional external service or API key is necessary for the current LifeLink Blue feature set.
