@@ -252,7 +252,7 @@ export const operationsRouter = router({
             .values({
               accountId: account.id,
               bloodGroup: input.bloodGroup ?? null,
-              dateOfBirth: input.dateOfBirth ?? null,
+              dateOfBirth: input.dateOfBirth ? new Date(input.dateOfBirth) : null,
               address: input.address ?? null,
               city: input.city,
               state: input.state,
@@ -437,9 +437,16 @@ export const operationsRouter = router({
             message: "Patient profile not found.",
           });
         const db = await database();
+        const { dateOfBirth, ...rest } = input;
+        const update = {
+          ...rest,
+          ...(dateOfBirth !== undefined
+            ? { dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null }
+            : {}),
+        };
         await db
           .update(registeredPatients)
-          .set(input)
+          .set(update)
           .where(eq(registeredPatients.id, patient.id));
         await audit(
           account.id,

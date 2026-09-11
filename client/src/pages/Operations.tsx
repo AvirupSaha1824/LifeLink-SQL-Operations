@@ -65,7 +65,7 @@ function Notice({
   );
 }
 
-function AuthPanel() {
+export function AuthPanel() {
   const utils = trpc.useUtils();
   const [mode, setMode] = useState<"login" | "register">("login");
   const [form, setForm] = useState({
